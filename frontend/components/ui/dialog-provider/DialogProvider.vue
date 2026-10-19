@@ -10,6 +10,20 @@
   const activeAlerts = reactive<string[]>([]);
   const openDialogCallbacks = new Map<DialogID, (params: any) => void>();
 
+  // Temporary diagnostics for the isolated navigation reproduction; remove before the final fix.
+  let nextRegistrationId = 0;
+  const registrationIds = new Map<DialogID, number>();
+  function traceDialog(event: string, dialogId: DialogID, details: Record<string, unknown>) {
+    if (typeof window === "undefined" || localStorage.getItem("homebox:trace-dialogs") !== "1") return;
+    console.info("[dialog-trace] " + JSON.stringify({
+      event,
+      dialogId,
+      path: window.location.pathname,
+      time: Math.round(performance.now()),
+      ...details,
+    }));
+  }
+
   // onClose for the currently-open dialog (only one dialog can be active)
   let activeOnCloseCallback: ((result?: any) => void) | undefined;
 
@@ -17,9 +31,18 @@
     dialogId: T,
     callback: (params?: T extends keyof DialogParamsMap ? DialogParamsMap[T] : undefined) => void
   ) => {
+    const registrationId = ++nextRegistrationId;
+    traceDialog("register", dialogId, { registrationId, replacing: registrationIds.get(dialogId) ?? null });
+    registrationIds.set(dialogId, registrationId);
     openDialogCallbacks.set(dialogId, callback as (params: any) => void);
     return () => {
+      traceDialog("cleanup", dialogId, {
+        registrationId,
+        currentRegistrationId: registrationIds.get(dialogId) ?? null,
+        ownsCurrentCallback: openDialogCallbacks.get(dialogId) === callback,
+      });
       openDialogCallbacks.delete(dialogId);
+      registrationIds.delete(dialogId);
     };
   };
 
@@ -30,6 +53,10 @@
     activeOnCloseCallback = options?.onClose;
 
     const openCallback = openDialogCallbacks.get(dialogId);
+    traceDialog("open", dialogId, {
+      currentRegistrationId: registrationIds.get(dialogId) ?? null,
+      hasCallback: !!openCallback,
+    });
     if (openCallback) {
       openCallback(options?.params);
     }
