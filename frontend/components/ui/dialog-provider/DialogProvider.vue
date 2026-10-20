@@ -49,13 +49,20 @@
     registrationIds.set(dialogId, registrationId);
     openDialogCallbacks.set(dialogId, callback as (params: any) => void);
     return () => {
+      const currentRegistrationId = registrationIds.get(dialogId) ?? null;
+      const ownsCurrentCallback = openDialogCallbacks.get(dialogId) === callback;
+      // A replacement may already own this dialog ID when the old component unmounts.
+      if (ownsCurrentCallback) {
+        openDialogCallbacks.delete(dialogId);
+        registrationIds.delete(dialogId);
+      }
       traceDialog("cleanup", dialogId, {
         registrationId,
-        currentRegistrationId: registrationIds.get(dialogId) ?? null,
-        ownsCurrentCallback: openDialogCallbacks.get(dialogId) === callback,
+        currentRegistrationId,
+        ownsCurrentCallback,
+        callbackPresentAfterCleanup: openDialogCallbacks.has(dialogId),
+        registrationIdAfterCleanup: registrationIds.get(dialogId) ?? null,
       });
-      openDialogCallbacks.delete(dialogId);
-      registrationIds.delete(dialogId);
     };
   };
 
