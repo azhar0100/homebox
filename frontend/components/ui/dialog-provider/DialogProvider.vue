@@ -28,12 +28,13 @@
     traceDialog("active-change", current, { previousDialogId: previous, activeDialog: current });
   }, { flush: "sync" });
 
-  const removeAfterEach = useRouter().afterEach((to, from) => {
+  const removeAfterEach = useRouter().afterEach((to, from, failure) => {
     traceDialog("route", activeDialog.value, {
       fromPath: from.path,
       toPath: to.path,
       activeDialog: activeDialog.value,
     });
+    if (!failure) closeDialog();
   });
   onUnmounted(removeAfterEach);
 
