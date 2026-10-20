@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import { computed, getCurrentInstance, watch } from "vue";
   import { useI18n } from "vue-i18n";
   import { Dialog, DialogContent } from "@/components/ui/dialog";
   import { Button, buttonVariants } from "@/components/ui/button";
@@ -13,7 +14,22 @@
   const { t } = useI18n();
   const confirm = useConfirm();
 
-  const { closeDialog, registerOpenDialogCallback } = useDialog();
+  const { activeDialog, closeDialog, registerOpenDialogCallback } = useDialog();
+  const viewerId = getCurrentInstance()?.uid ?? null;
+
+  function traceViewer(event: string) {
+    if (typeof window === "undefined" || localStorage.getItem("homebox:trace-dialogs") !== "1") return;
+    console.info("[dialog-trace] " + JSON.stringify({
+      event,
+      dialogId: DialogID.ItemImage,
+      path: window.location.pathname,
+      time: Math.round(performance.now()),
+      viewerId,
+      activeDialog: activeDialog.value,
+      hasOriginalSrc: !!image.originalSrc,
+      hasThumbnailSrc: !!image.thumbnailSrc,
+    }));
+  }
 
   const api = useUserApi();
 
@@ -29,7 +45,11 @@
     originalSrc: "",
   });
 
+  const isViewerActive = computed(() => activeDialog.value === DialogID.ItemImage);
+  watch(isViewerActive, () => traceViewer("viewer-open-state"), { flush: "sync" });
+
   onMounted(() => {
+    traceViewer("viewer-mounted");
     const cleanup = registerOpenDialogCallback(DialogID.ItemImage, params => {
       image.attachmentId = params.attachmentId;
       image.itemId = params.itemId;
@@ -44,9 +64,13 @@
           ? api.authURL(`/entities/${params.itemId}/attachments/${params.thumbnailId}`)
           : image.originalSrc;
       }
+      traceViewer("viewer-params");
     });
 
-    onUnmounted(cleanup);
+    onUnmounted(() => {
+      traceViewer("viewer-unmounted");
+      cleanup();
+    });
   });
 
   async function deleteAttachment() {

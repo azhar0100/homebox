@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, reactive, computed } from 'vue';
+  import { ref, reactive, computed, watch, onUnmounted } from 'vue';
   import {
     provideDialogContext,
     type DialogID,
@@ -13,7 +13,7 @@
   // Temporary diagnostics for the isolated navigation reproduction; remove before the final fix.
   let nextRegistrationId = 0;
   const registrationIds = new Map<DialogID, number>();
-  function traceDialog(event: string, dialogId: DialogID, details: Record<string, unknown>) {
+  function traceDialog(event: string, dialogId: DialogID | null, details: Record<string, unknown>) {
     if (typeof window === "undefined" || localStorage.getItem("homebox:trace-dialogs") !== "1") return;
     console.info("[dialog-trace] " + JSON.stringify({
       event,
@@ -23,6 +23,19 @@
       ...details,
     }));
   }
+
+  watch(activeDialog, (current, previous) => {
+    traceDialog("active-change", current, { previousDialogId: previous, activeDialog: current });
+  }, { flush: "sync" });
+
+  const removeAfterEach = useRouter().afterEach((to, from) => {
+    traceDialog("route", activeDialog.value, {
+      fromPath: from.path,
+      toPath: to.path,
+      activeDialog: activeDialog.value,
+    });
+  });
+  onUnmounted(removeAfterEach);
 
   // onClose for the currently-open dialog (only one dialog can be active)
   let activeOnCloseCallback: ((result?: any) => void) | undefined;
