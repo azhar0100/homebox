@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, reactive, computed, onUnmounted } from 'vue';
+  import { ref, reactive, computed } from 'vue';
   import {
     provideDialogContext,
     type DialogID,
@@ -10,10 +10,9 @@
   const activeAlerts = reactive<string[]>([]);
   const openDialogCallbacks = new Map<DialogID, (params: any) => void>();
 
-  const removeAfterEach = useRouter().afterEach((_to, _from, failure) => {
+  useRouter().afterEach((_to, _from, failure) => {
     if (!failure) closeDialog();
   });
-  onUnmounted(removeAfterEach);
 
   // onClose for the currently-open dialog (only one dialog can be active)
   let activeOnCloseCallback: ((result?: any) => void) | undefined;
