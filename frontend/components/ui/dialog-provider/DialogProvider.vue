@@ -10,6 +10,10 @@
   const activeAlerts = reactive<string[]>([]);
   const openDialogCallbacks = new Map<DialogID, (params: any) => void>();
 
+  useRouter().afterEach((_to, _from, failure) => {
+    if (!failure) closeDialog();
+  });
+
   // onClose for the currently-open dialog (only one dialog can be active)
   let activeOnCloseCallback: ((result?: any) => void) | undefined;
 
@@ -19,7 +23,10 @@
   ) => {
     openDialogCallbacks.set(dialogId, callback as (params: any) => void);
     return () => {
-      openDialogCallbacks.delete(dialogId);
+      // A replacement may already own this dialog ID when the old component unmounts.
+      if (openDialogCallbacks.get(dialogId) === callback) {
+        openDialogCallbacks.delete(dialogId);
+      }
     };
   };
 
